@@ -1,10 +1,18 @@
-title: "Morph-KGC: Scalable Knowledge Graph Materialization with Mapping Partitions"
+cff-version: 1.2.0
+message: "Please cite Morph-KGC Spark and the original Morph-KGC paper when using this software."
+title: "Morph-KGC Spark: Distributed RDF Knowledge Graph Materialization"
+type: software
+version: "2.10.0+spark.2"
+date-released: 2026-08-31
 license: Apache-2.0
+repository-code: "https://github.com/SCRCE/morph-kgc-spark"
 authors:
+  - family-names: Hammad
+    given-names: Ahmad
+    email: Ahmad.Hammad@ieee.org
   - family-names: Arenas-Guerrero
     given-names: Julián
-    orcid: "http://orcid.org/0000-0002-3029-6469"
-cff-version: 1.2.0
+    orcid: "https://orcid.org/0000-0002-3029-6469"
 preferred-citation:
   authors:
     - family-names: Arenas-Guerrero
@@ -25,6 +33,6 @@ preferred-citation:
   volume: 15
   issue: 1
 identifiers:
-  - description: "Collection of archived snapshots for Morph-KGC"
+  - description: "Collection of archived snapshots for upstream Morph-KGC"
     type: doi
     value: 10.5281/zenodo.6524684

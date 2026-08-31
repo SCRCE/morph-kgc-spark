@@ -18,7 +18,11 @@ description = 'Morph-KGC fork with an optional Apache Spark backend for distribu
 readme = 'README.md'
 keywords = ['Morph-KGC', 'RDF', 'R2RML', 'RML', 'RML-star', 'Knowledge Graph', 'Data Integration']
 authors = [
+  {name = 'Ahmad Hammad', email = 'Ahmad.Hammad@ieee.org'},
   {name = 'Julián Arenas-Guerrero', email = 'julian.arenas.guerrero@upm.es'}
+]
+maintainers = [
+  {name = 'Ahmad Hammad', email = 'Ahmad.Hammad@ieee.org'}
 ]
 license = 'Apache-2.0'
 classifiers = [

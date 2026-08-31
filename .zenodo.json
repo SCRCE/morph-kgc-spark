@@ -1,4 +1,7 @@
 {
+    "title": "Morph-KGC Spark: Distributed RDF Knowledge Graph Materialization",
+    "description": "A community-maintained Morph-KGC fork with an optional Apache Spark backend.",
+    "upload_type": "software",
     "license": "Apache-2.0",
     "keywords": [
         "Python",
@@ -9,7 +12,9 @@
         "R2RML",
         "RML",
         "RML-star",
-        "RDF-star"
+        "RDF-star",
+        "Apache Spark",
+        "PySpark"
     ],
     "communities": [
         {
@@ -20,6 +25,9 @@
         }
     ],
     "creators": [
+        {
+            "name": "Hammad, Ahmad"
+        },
         {
             "orcid": "0000-0002-3029-6469",
             "affiliation": "Universidad Politécnica de Madrid",

@@ -1,9 +1,9 @@
-__author__ = "Julián Arenas-Guerrero"
-__credits__ = ["Julián Arenas-Guerrero"]
+__author__ = "Ahmad Hammad"
+__credits__ = ["Julián Arenas-Guerrero", "Ahmad Hammad"]
 
 __license__ = "Apache-2.0"
-__maintainer__ = "Julián Arenas-Guerrero"
-__email__ = "arenas.guerrero.julian@outlook.com"
+__maintainer__ = "Ahmad Hammad"
+__email__ = "Ahmad.Hammad@ieee.org"
 
 
 class ExecutionBackend:

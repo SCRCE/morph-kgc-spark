@@ -9,7 +9,7 @@ Pandas remains the default and reference engine. Existing configurations continu
 Install Morph-KGC Spark from its release tag with the optional Spark dependency:
 
 ```bash
-pip install 'morph-kgc[spark] @ git+https://github.com/SCRCE/morph-kgc-spark.git@v2.10.0-spark.1'
+pip install 'morph-kgc[spark] @ git+https://github.com/SCRCE/morph-kgc-spark.git@v2.10.0-spark.2'
 ```
 
 A compatible Java runtime is also required. PySpark is imported only when Spark execution is selected. If it is unavailable, Morph-KGC raises a dependency error with installation guidance.

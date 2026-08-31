@@ -1,3 +1,11 @@
+__author__ = "Ahmad Hammad"
+__credits__ = ["Ahmad Hammad"]
+
+__license__ = "Apache-2.0"
+__maintainer__ = "Ahmad Hammad"
+__email__ = "Ahmad.Hammad@ieee.org"
+
+
 from urllib.parse import quote, urlencode
 
 POSTGRESQL_JDBC_DRIVER = 'org.postgresql.Driver'

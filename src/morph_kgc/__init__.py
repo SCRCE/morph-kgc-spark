@@ -1,10 +1,10 @@
-__author__ = "Julián Arenas-Guerrero"
-__credits__ = ["Julián Arenas-Guerrero"]
+__author__ = "Julián Arenas-Guerrero and Ahmad Hammad"
+__credits__ = ["Julián Arenas-Guerrero", "Ahmad Hammad"]
 __copyright__ = "Copyright © 2020 Julián Arenas-Guerrero"
 
 __license__ = "Apache-2.0"
-__maintainer__ = "Julián Arenas-Guerrero"
-__email__ = "arenas.guerrero.julian@outlook.com"
+__maintainer__ = "Ahmad Hammad"
+__email__ = "Ahmad.Hammad@ieee.org"
 
 
 import logging

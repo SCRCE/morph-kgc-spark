@@ -63,7 +63,7 @@ morph_kgc config.ini
 The default execution engine is `pandas`. Install this fork with its optional Spark dependencies to use the Spark backend:
 
 ```bash
-pip install 'morph-kgc[spark] @ git+https://github.com/SCRCE/morph-kgc-spark.git@v2.10.0-spark.1'
+pip install 'morph-kgc[spark] @ git+https://github.com/SCRCE/morph-kgc-spark.git@v2.10.0-spark.2'
 ```
 
 ```ini
@@ -104,15 +104,17 @@ g_rdflib = morph_kgc.materialize(config)
 
 Morph-KGC is available under the **[Apache License 2.0](https://github.com/morph-kgc/morph-kgc/blob/main/LICENSE)**.
 
-## Author & Contact :mailbox_with_mail:
+## Maintainer & Contact :mailbox_with_mail:
 
-- **[Julián Arenas-Guerrero](https://github.com/arenas-guerrero-julian/) - [julian.arenas.guerrero@upm.es](mailto:julian.arenas.guerrero@upm.es)**
+- **[Ahmad Hammad](https://github.com/SCRCE) - [Ahmad.Hammad@ieee.org](mailto:Ahmad.Hammad@ieee.org)**
 
-*[Ontology Engineering Group](https://oeg.fi.upm.es)*, *[Universidad Politécnica de Madrid](https://www.upm.es/internacional)*.
+## Upstream Attribution
+
+Morph-KGC Spark is maintained by Ahmad Hammad and is based on [Morph-KGC](https://github.com/morph-kgc/morph-kgc), originally created and maintained by [Julián Arenas-Guerrero](https://github.com/arenas-guerrero-julian/) at the [Ontology Engineering Group](https://oeg.fi.upm.es), [Universidad Politécnica de Madrid](https://www.upm.es/internacional). Original copyright and contributor attribution are preserved under the Apache License 2.0.
 
 ## Citing :speech_balloon:
 
-If you used Morph-KGC in your work, please cite the **[SWJ paper](https://www.doi.org/10.3233/SW-223135)**:
+If you use Morph-KGC Spark, cite this repository release and the original Morph-KGC **[Semantic Web paper](https://www.doi.org/10.3233/SW-223135)**:
 
 ```bib
 @article{arenas2024morph,

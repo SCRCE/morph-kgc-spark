@@ -2,8 +2,8 @@ __author__ = "Julián Arenas-Guerrero"
 __credits__ = ["Julián Arenas-Guerrero"]
 
 __license__ = "Apache-2.0"
-__maintainer__ = "Julián Arenas-Guerrero"
-__email__ = "arenas.guerrero.julian@outlook.com"
+__maintainer__ = "Ahmad Hammad"
+__email__ = "Ahmad.Hammad@ieee.org"
 
 
 import argparse
@@ -30,7 +30,7 @@ def _parse_arguments():
 
     parser = argparse.ArgumentParser(
         description='Generate Knowledge Graphs from Heterogeneous Data Sources.',
-        epilog="Copyright © 2020 Julián Arenas-Guerrero",
+        epilog="Morph-KGC Spark is maintained by Ahmad Hammad. Original copyright © 2020 Julián Arenas-Guerrero",
         allow_abbrev=False,
         prog='morph_kgc',
         argument_default=argparse.SUPPRESS
@@ -38,7 +38,8 @@ def _parse_arguments():
 
     parser.add_argument('config', type=_existing_file_path, help='path to the configuration file')
     parser.add_argument('-v', '--version', action='version',
-                        version=f'Morph-KGC {__version__} | Copyright © 2020 Julián Arenas-Guerrero')
+                        version=f'Morph-KGC Spark {__version__} | Maintained by Ahmad Hammad | '
+                                f'Original copyright © 2020 Julián Arenas-Guerrero')
 
     return parser.parse_args()
 
