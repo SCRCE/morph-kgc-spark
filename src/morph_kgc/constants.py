@@ -71,6 +71,7 @@ JELLY = 'JELLY'
 
 VALID_OUTPUT_FORMATS = [NTRIPLES, NQUADS, JELLY]
 VALID_LOGGING_LEVEL = ['NOTSET', 'DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL']
+VALID_EXECUTION_ENGINES = ['pandas', 'spark']
 
 
 ##############################################################################

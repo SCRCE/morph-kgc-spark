@@ -742,7 +742,37 @@ class MappingParser:
         """
 
         for i, rml_rule in self.rml_df.iterrows():
-            if self.config.has_db_url(rml_rule['source_name']):
+            logical_source_value = str(rml_rule['logical_source_value']).strip()
+            file_extension = os.path.splitext(logical_source_value)[1][1:].strip().upper()
+
+            if rml_rule['logical_source_type'] == RML_QUERY and not self.config.has_db_url(rml_rule['source_name']):
+                # it is a query, but it is not a DB (because no db_url), hence it is a tabular view
+                # assign CSV (it can also be Apache Parquet but format is automatically inferred)
+                self.rml_df.at[i, 'source_type'] = CSV
+            elif rml_rule['logical_source_type'] == RML_SOURCE \
+                    and logical_source_value.startswith('{') \
+                    and logical_source_value.endswith('}'):
+                # it is an in-memory data structure
+                self.rml_df.at[i, 'source_type'] = PYTHON_SOURCE
+            elif rml_rule['logical_source_type'] == RML_SOURCE:
+                if pd.notna(rml_rule['reference_formulation']) and GEOPARQUET in rml_rule['reference_formulation'].upper():
+                    self.rml_df.at[i, 'source_type'] = GEOPARQUET
+                elif file_extension in FILE_SOURCE_TYPES:
+                    # Mixed YARRRML files can live in DB-backed config sections while still
+                    # referencing auxiliary CSV/JSON/XML files via rml:source. Classify those
+                    # rows from the actual logical source value rather than the section db_url.
+                    self.rml_df.at[i, 'source_type'] = file_extension
+                elif self.config.has_db_url(rml_rule['source_name']):
+                    if pd.notna(rml_rule['reference_formulation']) and 'CYPHER' in rml_rule['reference_formulation'].upper():
+                        self.rml_df.at[i, 'source_type'] = PGDB
+                    else:
+                        self.rml_df.at[i, 'source_type'] = RDB
+                elif pd.notna(rml_rule['reference_formulation']):
+                    # if file extension is not recognized, use reference formulation
+                    self.rml_df.at[i, 'source_type'] = rml_rule['reference_formulation'].replace(RML_NAMESPACE, '').upper()
+                else:
+                    raise Exception('No source type could be retrieved for some mapping rules.')
+            elif self.config.has_db_url(rml_rule['source_name']):
                 if pd.notna(rml_rule['reference_formulation']) and 'SQL' in rml_rule['reference_formulation'].upper():
                     self.rml_df.at[i, 'source_type'] = RDB
                 elif pd.notna(rml_rule['reference_formulation']) and 'CYPHER' in rml_rule['reference_formulation'].upper():
@@ -750,28 +780,6 @@ class MappingParser:
                 else:
                     # if db_url but no reference formulation, assume it is a relational database
                     self.rml_df.at[i, 'source_type'] = RDB
-            elif rml_rule['logical_source_type'] == RML_QUERY:
-                # it is a query, but it is not a DB (because no db_url), hence it is a tabular view
-                # assign CSV (it can also be Apache Parquet but format is automatically inferred)
-                self.rml_df.at[i, 'source_type'] = CSV
-            elif rml_rule['logical_source_type'] == RML_SOURCE \
-                    and self.rml_df.at[i, 'logical_source_value'].startswith('{') \
-                    and self.rml_df.at[i, 'logical_source_value'].endswith('}'):
-                # it is an in-memory data structure
-                self.rml_df.at[i, 'source_type'] = PYTHON_SOURCE
-            elif rml_rule['logical_source_type'] == RML_SOURCE:
-                # it is a file, infer source type from file extension
-                file_extension = os.path.splitext(str(rml_rule['logical_source_value']))[1][1:].strip()
-
-                if pd.notna(rml_rule['reference_formulation']) and GEOPARQUET in rml_rule['reference_formulation'].upper():
-                    self.rml_df.at[i, 'source_type'] = GEOPARQUET
-                elif file_extension.upper() in FILE_SOURCE_TYPES:
-                    self.rml_df.at[i, 'source_type'] = file_extension.upper()
-                elif pd.notna(rml_rule['reference_formulation']):
-                    # if file extension is not recognized, use reference formulation
-                    self.rml_df.at[i, 'source_type'] = rml_rule['reference_formulation'].replace(RML_NAMESPACE, '').upper()
-                else:
-                    raise Exception('No source type could be retrieved for some mapping rules.')
             else:
                 raise Exception('No source type could be retrieved for some mapping rules.')
 

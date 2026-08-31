@@ -17,7 +17,8 @@ from datetime import datetime
 from datetime import timedelta
 from ast import literal_eval
 from uuid import uuid4
-from falcon.uri import encode_value
+
+from ..compat import encode_iri_value
 
 
 bif_dict = {}
@@ -84,8 +85,6 @@ def array_length(array_list):
     array_list="http://users.ugent.be/~bjdmeest/function/grel.ttl#p_array_a",
 )
 def array_sum(array_list):
-    print(array_list)
-    print(type(array_list))
     if type(array_list) != list:
         return None
     else:
@@ -256,6 +255,24 @@ def boolean_true(bool_input:list|str, bool_check:list|str=None):
     if type(bool_check) == str and eval(bool_check.title()):
         return bool_input
     return None
+
+
+@bif(
+    fun_id="equal",
+    str1="str1",
+    str2="str2",
+)
+def condition_equal(str1, str2):
+    return str(str(str1) == str(str2)).lower()
+
+
+@bif(
+    fun_id="notEqual",
+    str1="str1",
+    str2="str2",
+)
+def condition_not_equal(str1, str2):
+    return str(str(str1) != str(str2)).lower()
         
 
 ##############################################################################
@@ -1315,12 +1332,12 @@ def to_upper_case_url(url):
     url_lower = url.lower()
 
     if url_lower.startswith("https://"):
-        return f"https://{encode_value(url[:8].upper())}"
+        return f"https://{encode_iri_value(url[:8].upper())}"
     elif url_lower.startswith("http://"):
-        return f"http://{encode_value(url[:7].upper())}"
+        return f"http://{encode_iri_value(url[:7].upper())}"
 
     # else:
-    return f"http://{encode_value(url.upper())}"
+    return f"http://{encode_iri_value(url.upper())}"
 
 
 @bif(

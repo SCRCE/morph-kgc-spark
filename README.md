@@ -11,7 +11,7 @@
 [![Documentation Status](https://readthedocs.org/projects/morph-kgc/badge/?version=stable)](https://morph-kgc.readthedocs.io)
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1ByFx_NOEfTZeaJ1Wtw3UwTH3H3-Sye2O?usp=sharing)
 
-**Morph-KGC** is an engine that constructs **[RDF](https://www.w3.org/TR/rdf11-concepts/)** knowledge graphs from heterogeneous data sources with the **[R2RML](https://www.w3.org/TR/r2rml/)** and **[RML](https://w3id.org/rml/core/spec)** mapping languages. Morph-KGC is built on top of [pandas](https://pandas.pydata.org/) and it leverages *mapping partitions* to significantly reduce execution times and memory consumption for large data sources.
+**Morph-KGC** is an engine that constructs **[RDF](https://www.w3.org/TR/rdf11-concepts/)** knowledge graphs from heterogeneous data sources with the **[R2RML](https://www.w3.org/TR/r2rml/)** and **[RML](https://w3id.org/rml/core/spec)** mapping languages. Morph-KGC uses [pandas](https://pandas.pydata.org/) by default and leverages *mapping partitions* to significantly reduce execution times and memory consumption for large data sources. This fork also provides an optional [Apache Spark](https://spark.apache.org/) backend for distributed materialization.
 
 ## Features :sparkles:
 
@@ -21,6 +21,7 @@
 - **[RML views](https://2023.eswc-conferences.org/wp-content/uploads/2023/05/paper_Arenas-Guerrero_2023_Boosting.pdf)** over tabular data sources and [JSON](https://www.json.org) files.
 - Integration with **[RDFLib](https://rdflib.readthedocs.io)**, **[Oxigraph](https://pyoxigraph.readthedocs.io/en)** and [Kafka](https://kafka-python.readthedocs.io).
 - **Optimized** to materialize large knowledge graphs.
+- Optional **Apache Spark backend** for distributed scans, joins, deduplication, function execution, and RDF file output.
 - **Remote** data and mapping files.
 - Input data formats:
     - **Relational databases**: [MySQL](https://www.mysql.com/), [PostgreSQL](https://www.postgresql.org/), [Oracle](https://www.oracle.com/database/), [Microsoft SQL Server](https://www.microsoft.com/sql-server), [MariaDB](https://mariadb.org/), [SQLite](https://www.sqlite.org).
@@ -51,6 +52,21 @@ To run the engine via **command line** you just need to execute the following:
 ```bash
 morph_kgc config.ini
 ```
+
+The default execution engine is `pandas`. To use the optional Spark backend:
+
+```bash
+pip install 'morph-kgc[spark]'
+```
+
+```ini
+[CONFIGURATION]
+execution_engine=spark
+output_file=knowledge-graph.nt
+output_format=N-TRIPLES
+```
+
+Spark is loaded only when selected. Unsupported Spark features fail explicitly and recommend the pandas backend; Morph-KGC never silently changes execution engines. See **[Spark backend](docs/spark.md)** for supported sources, functions, output behavior, JDBC configuration, and operational guidance.
 
 Check the **[documentation](https://morph-kgc.readthedocs.io/en/stable/documentation/#configuration)** to see how to generate the configuration **INI file**. **[Here](https://github.com/morph-kgc/morph-kgc/blob/main/examples/configuration-file/default_config.ini)** you can also see an example INI file.
 

@@ -6,9 +6,9 @@ __maintainer__ = "Julián Arenas-Guerrero"
 __email__ = "arenas.guerrero.julian@outlook.com"
 
 
-from falcon.uri import encode_value
 from urllib.parse import quote
 
+from .compat import encode_iri_value
 from .utils import *
 from .constants import *
 from .data_source.relational_db import get_sql_data
@@ -117,7 +117,9 @@ def _materialize_template(results_df, template, expression_type, config, positio
                 results_df['reference_results'] = results_df['reference_results'].apply(
                     lambda x: quote(x, safe=config.get_safe_percent_encoding()))
             else:
-                results_df['reference_results'] = results_df['reference_results'].apply(lambda x: encode_value(x))
+                results_df['reference_results'] = results_df['reference_results'].apply(
+                    lambda x: encode_iri_value(x)
+                )
         elif termtype.strip() == RML_LITERAL:
             if datatype == XSD_BOOLEAN:
                 results_df['reference_results'] = results_df['reference_results'].str.lower()
@@ -175,13 +177,13 @@ def _materialize_fnml_execution(results_df, fnml_execution, fnml_df, config, pos
         elif datatype == XSD_INTEGER or datatype == XSD_NONNEGATIVEINTEGER:
             results_df[fnml_execution] = results_df[fnml_execution].astype(float).astype(int).astype(str)
 
-        results_df['reference_results'] = results_df['reference_results'].str.replace('\\', '\\\\', regex=False).str.replace('\n', '\\n', regex=False).str.replace('\r', '\\r', regex=False).str.replace('"', '\\"', regex=False)
+        results_df[fnml_execution] = results_df[fnml_execution].str.replace('\\', '\\\\', regex=False).str.replace('\n', '\\n', regex=False).str.replace('\r', '\\r', regex=False).str.replace('"', '\\"', regex=False)
         for char in config.get_literal_escaping_chars():
             if char not in ['"', '\n', '\\', '\r']:
                 if char in ['\n', '\r', '\t', '\b', '\f']:
-                    results_df['reference_results'] = results_df['reference_results'].str.replace(char, f'\\{char}', regex=False)
+                    results_df[fnml_execution] = results_df[fnml_execution].str.replace(char, f'\\{char}', regex=False)
                 else:
-                    results_df['reference_results'] = results_df['reference_results'].str.replace(char, f'\\\\{char}', regex=False)
+                    results_df[fnml_execution] = results_df[fnml_execution].str.replace(char, f'\\\\{char}', regex=False)
 
         results_df[position] = '"' + results_df[fnml_execution] + '"'
     elif termtype.strip() == RML_IRI:
@@ -356,11 +358,11 @@ def _materialize_mapping_group_to_set(mapping_group_df, rml_df, fnml_df, config,
     return triples
 
 
-def _materialize_mapping_group_to_file(mapping_group_df, rml_df, fnml_df, config):
+def _materialize_mapping_group_to_file(mapping_group_df, rml_df, fnml_df, config, python_source=None):
     triples = set()
     for i, rml_rule in mapping_group_df.iterrows():
         start_time = time.time()
-        data = _materialize_rml_rule(rml_rule, rml_df, fnml_df, config)
+        data = _materialize_rml_rule(rml_rule, rml_df, fnml_df, config, python_source=python_source)
         triples.update(set(data['triple']))
 
         LOGGER.debug(f"{len(triples)} triples generated for mapping rule `{rml_rule['triples_map_id']}` "

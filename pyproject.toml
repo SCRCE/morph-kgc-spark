@@ -58,6 +58,7 @@ path = 'src/morph_kgc/_version.py'
 
 [project.optional-dependencies]
 test = ['pytest>=8.0.0, <9.0.0', 'SQLAlchemy>=2.0.0, <3.0.0', 'sql-metadata>=2.6.0, <3.0.0', 'openpyxl>=3.0.0, <4.0.0', 'odfpy>=1.4.1, <2.0.0', 'pyarrow>=14.0.0, <20.0.0', 'geopandas>=1.0.0, <2.0.0']
+spark = ['pyspark>=3.5.0, <4.0.0']
 kafka = ['kafka-python>=2.0.2, <3.0.0']
 sqlite = ['SQLAlchemy>=2.0.0, <3.0.0', 'sql-metadata>=2.6.0, <3.0.0']
 mysql = ['pymysql>=1.1.0, <2.0.0', 'cryptography>=42.0.0, <43.0.0', 'SQLAlchemy>=2.0.0, <3.0.0', 'sql-metadata>=2.6.0, <3.0.0']
@@ -81,6 +82,7 @@ all = [
   'morph_kgc[oracle]',
   'morph_kgc[mssql]',
   'morph_kgc[sqlite]',
+  'morph_kgc[spark]',
   'morph_kgc[excel]',
   'morph_kgc[tabular]',
   'morph_kgc[spss]',
@@ -91,4 +93,9 @@ all = [
   'morph_kgc[http]',
   'morph_kgc[geoparquet]',
   'morph_kgc[jelly]',
+]
+
+[tool.pytest.ini_options]
+markers = [
+  'spark: tests that require optional PySpark and a working Java runtime',
 ]

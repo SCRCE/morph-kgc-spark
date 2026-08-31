@@ -321,8 +321,10 @@ def _normalize_function_parameters(term_map, prefixes):
                     term_map['parameters'][i] = parameter
 
                 if type(term_map['parameters'][i]['value']) is dict and 'function' in term_map['parameters'][i]['value']:
-                    term_map['parameters'][i]['parameter'] = term_map['parameters'][i]['parameter']
-                    # term_map['parameters'][i]['value'] = _normalize_function_parameters(term_map['parameters'][i]['value'], prefixes)
+                    term_map['parameters'][i]['value'] = _normalize_function_parameters(
+                        term_map['parameters'][i]['value'],
+                        prefixes,
+                    )
     elif type(term_map) is dict and 'function' in term_map and term_map['function'].endswith(')'):
         # inline function examples 99 & 101 YARRRML spec
         inline_function = term_map['function']

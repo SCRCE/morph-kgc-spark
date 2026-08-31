@@ -12,6 +12,7 @@ import logging
 import multiprocessing as mp
 
 from configparser import ConfigParser
+from datetime import datetime
 from pathlib import Path
 
 from .constants import *
@@ -31,6 +32,7 @@ LITERAL_ESCAPING_CHARS = 'literal_escaping_chars'
 OUTPUT_DIR = 'output_dir'
 OUTPUT_FILE = 'output_file'
 OUTPUT_FORMAT = 'output_format'
+EXECUTION_ENGINE = 'execution_engine'
 ONLY_PRINTABLE_CHARS = 'only_printable_chars'
 SAFE_PERCENT_ENCODING = 'safe_percent_encoding'
 
@@ -58,6 +60,28 @@ MAPPINGS = 'mappings'
 FILE_PATH = 'file_path'
 DB_URL = 'db_url'
 CONNECT_ARGS = 'connect_args'
+SPARK_RDB_MODE = 'spark_rdb_mode'
+SPARK_JDBC_PARTITION_COLUMN = 'spark_jdbc_partition_column'
+SPARK_JDBC_LOWER_BOUND = 'spark_jdbc_lower_bound'
+SPARK_JDBC_UPPER_BOUND = 'spark_jdbc_upper_bound'
+SPARK_JDBC_NUM_PARTITIONS = 'spark_jdbc_num_partitions'
+SPARK_JDBC_FETCH_SIZE = 'spark_jdbc_fetch_size'
+
+DEFAULT_SPARK_RDB_MODE = 'local_preprocess'
+DEFAULT_SPARK_JDBC_FETCH_SIZE = 10000
+VALID_SPARK_RDB_MODES = {'local_preprocess', 'jdbc'}
+
+
+def _parse_spark_jdbc_bound(value, option, source_section):
+    try:
+        return 'integral', int(value)
+    except ValueError:
+        try:
+            return 'temporal', datetime.fromisoformat(value)
+        except ValueError as exception:
+            raise ValueError(
+                f'{option} in section `{source_section}` must be an integer or ISO date/timestamp.'
+            ) from exception
 
 ##############################################################################
 ##########################  KAFKA PARAMETERS  ################################
@@ -72,6 +96,7 @@ OUTPUT_KAFKA_TOPIC = 'output_kafka_topic'
 DEFAULT_OUTPUT_FILE = 'knowledge-graph'
 DEFAULT_OUTPUT_DIR = ''
 DEFAULT_OUTPUT_FORMAT = NTRIPLES
+DEFAULT_EXECUTION_ENGINE = 'pandas'
 DEFAULT_SAFE_PERCENT_ENCODING = ''
 DEFAULT_LOGGING_FILE = ''
 DEFAULT_LOGGING_LEVEL = 'INFO'
@@ -97,6 +122,7 @@ DEFAULT_WRITE_PARSED_MAPPINGS_PATH = ''
 # input parameters that are not to be completed with default value if they are empty
 CONFIGURATION_OPTIONS_EMPTY_VALID = {
             OUTPUT_FILE: DEFAULT_OUTPUT_FILE,
+            EXECUTION_ENGINE: DEFAULT_EXECUTION_ENGINE,
             NA_VALUES: DEFAULT_NA_VALUES,
             LITERAL_ESCAPING_CHARS: DEFAULT_LITERAL_ESCAPING_CHARS,
             SAFE_PERCENT_ENCODING: DEFAULT_SAFE_PERCENT_ENCODING,
@@ -176,6 +202,13 @@ class Config(ConfigParser):
             raise ValueError(f'{OUTPUT_FORMAT} value `{self.get_output_format()}` is not valid. '
                              f'It must be in: {VALID_OUTPUT_FORMATS}.')
 
+        # EXECUTION ENGINE
+        execution_engine = str(self.get_execution_engine()).lower()
+        self.set_execution_engine(execution_engine)
+        if execution_engine not in VALID_EXECUTION_ENGINES:
+            raise ValueError(f'{EXECUTION_ENGINE} value `{self.get_execution_engine()}` is not valid. '
+                             f'It must be in: {VALID_EXECUTION_ENGINES}.')
+
         # LOGGING LEVEL
         logging_level = str(self.get_logging_level()).upper()
         self.set_logging_level(logging_level)
@@ -191,6 +224,56 @@ class Config(ConfigParser):
             raise ValueError(
                 f'{MAPPING_PARTITIONING} value `{self.get_mapping_partitioning()}` is not valid. '
                 f'It must be in: {[MAXIMAL_PARTITIONING] + [PARTIAL_AGGREGATIONS_PARTITIONING] + NO_PARTITIONING}.')
+
+        self._validate_spark_rdb_options()
+
+    def _validate_spark_rdb_options(self):
+        for source_section in self.get_data_sources_sections():
+            mode = self.get_spark_rdb_mode(source_section)
+            if mode not in VALID_SPARK_RDB_MODES:
+                raise ValueError(
+                    f'{SPARK_RDB_MODE} value `{mode}` in section `{source_section}` is not valid. '
+                    f'It must be in: {sorted(VALID_SPARK_RDB_MODES)}.'
+                )
+            if mode != 'jdbc':
+                continue
+
+            required_options = [
+                SPARK_JDBC_PARTITION_COLUMN,
+                SPARK_JDBC_LOWER_BOUND,
+                SPARK_JDBC_UPPER_BOUND,
+                SPARK_JDBC_NUM_PARTITIONS,
+            ]
+            missing_options = [
+                option for option in required_options
+                if not self.has_option(source_section, option) or not self.get(source_section, option).strip()
+            ]
+            if missing_options:
+                raise ValueError(
+                    f'Spark JDBC mode in section `{source_section}` requires: {missing_options}. '
+                    'Set the partition column and explicit bounds, or use `spark_rdb_mode = local_preprocess`.'
+                )
+
+            lower_kind, lower_bound = _parse_spark_jdbc_bound(
+                self.get_spark_jdbc_lower_bound(source_section), SPARK_JDBC_LOWER_BOUND, source_section,
+            )
+            upper_kind, upper_bound = _parse_spark_jdbc_bound(
+                self.get_spark_jdbc_upper_bound(source_section), SPARK_JDBC_UPPER_BOUND, source_section,
+            )
+            if lower_kind != upper_kind:
+                raise ValueError(
+                    f'{SPARK_JDBC_LOWER_BOUND} and {SPARK_JDBC_UPPER_BOUND} must use the same type '
+                    f'in section `{source_section}`.'
+                )
+            if lower_bound >= upper_bound:
+                raise ValueError(
+                    f'{SPARK_JDBC_LOWER_BOUND} must be less than {SPARK_JDBC_UPPER_BOUND} '
+                    f'in section `{source_section}`.'
+                )
+            if self.get_spark_jdbc_num_partitions(source_section) < 1:
+                raise ValueError(f'{SPARK_JDBC_NUM_PARTITIONS} must be positive in section `{source_section}`.')
+            if self.get_spark_jdbc_fetch_size(source_section) < 1:
+                raise ValueError(f'{SPARK_JDBC_FETCH_SIZE} must be positive in section `{source_section}`.')
 
     def log_config_info(self):
         LOGGER.debug(f'CONFIGURATION: {dict(self.items(self.configuration_section))}')
@@ -256,6 +339,9 @@ class Config(ConfigParser):
     def get_output_format(self):
         return self.get(self.configuration_section, OUTPUT_FORMAT)
 
+    def get_execution_engine(self):
+        return self.get(self.configuration_section, EXECUTION_ENGINE)
+
     def get_na_values(self):
         return list(set(self.get(self.configuration_section, NA_VALUES).split(',')))
 
@@ -303,6 +389,9 @@ class Config(ConfigParser):
 
     def set_output_format(self, output_format):
         self.set(self.configuration_section, OUTPUT_FORMAT, output_format)
+
+    def set_execution_engine(self, execution_engine):
+        self.set(self.configuration_section, EXECUTION_ENGINE, execution_engine.lower())
 
     def set_number_of_processes(self, number_of_processes):
         self.set(self.configuration_section, NUMBER_OF_PROCESSES, number_of_processes)
@@ -352,3 +441,25 @@ class Config(ConfigParser):
 
     def has_db_url(self, source_section):
         return self.has_option(source_section, DB_URL)
+
+    def get_spark_rdb_mode(self, source_section):
+        return self.get(source_section, SPARK_RDB_MODE, fallback=DEFAULT_SPARK_RDB_MODE).strip().lower()
+
+    def get_spark_jdbc_partition_column(self, source_section):
+        return self.get(source_section, SPARK_JDBC_PARTITION_COLUMN)
+
+    def get_spark_jdbc_lower_bound(self, source_section):
+        return self.get(source_section, SPARK_JDBC_LOWER_BOUND)
+
+    def get_spark_jdbc_upper_bound(self, source_section):
+        return self.get(source_section, SPARK_JDBC_UPPER_BOUND)
+
+    def get_spark_jdbc_num_partitions(self, source_section):
+        return self.getint(source_section, SPARK_JDBC_NUM_PARTITIONS)
+
+    def get_spark_jdbc_fetch_size(self, source_section):
+        return self.getint(
+            source_section,
+            SPARK_JDBC_FETCH_SIZE,
+            fallback=DEFAULT_SPARK_JDBC_FETCH_SIZE,
+        )

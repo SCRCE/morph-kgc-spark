@@ -1,7 +1,8 @@
 from ..function_decorator import *
 from uuid import uuid4
-from falcon.uri import encode_value
 import hashlib
+
+from ...compat import encode_iri_value
 
 
 # Hashs
@@ -62,12 +63,12 @@ def to_upper_case_url(url):
     url_lower = url.lower()
 
     if url_lower.startswith("https://"):
-        return f"https://{encode_value(url[:8].upper())}"
+        return f"https://{encode_iri_value(url[:8].upper())}"
     elif url_lower.startswith("http://"):
-        return f"http://{encode_value(url[:7].upper())}"
+        return f"http://{encode_iri_value(url[:7].upper())}"
 
     # else:
-    return f"http://{encode_value(url.upper())}"
+    return f"http://{encode_iri_value(url.upper())}"
 
 
 @bif(fun_id="https://github.com/morph-kgc/morph-kgc/function/built-in.ttl#uuid")

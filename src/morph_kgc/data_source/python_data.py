@@ -10,7 +10,6 @@ import json
 import pandas as pd
 import numpy as np
 
-from jsonpath import JSONPath
 from ..utils import normalize_hierarchical_data
 
 
@@ -48,23 +47,90 @@ def _check_if_json(json_file):
 def _read_inmemory_json(source_value, rml_rule, references):
     json_data = json.loads(source_value)
 
-    jsonpath_expression = rml_rule['iterator'] + '.('
-    # add top level object of the references to reduce intermediate results (THIS IS NOT STRICTLY NECESSARY)
-    for reference in references:
-        jsonpath_expression += reference + ','
-    jsonpath_expression = jsonpath_expression[:-1] + ')'
+    try:
+        from jsonpath import JSONPath
 
-    jsonpath_result = JSONPath(jsonpath_expression).parse(json_data)
+        jsonpath_expression = rml_rule['iterator'] + '.('
+        # add top level object of the references to reduce intermediate results (THIS IS NOT STRICTLY NECESSARY)
+        for reference in references:
+            jsonpath_expression += reference + ','
+        jsonpath_expression = jsonpath_expression[:-1] + ')'
+
+        jsonpath_result = JSONPath(jsonpath_expression).parse(json_data)
+        normalized_rows = [
+            json_object
+            for json_object in normalize_hierarchical_data(jsonpath_result)
+            if None not in json_object.values()
+            and all(reference.split('.')[0] in json_object for reference in references)
+        ]
+    except ModuleNotFoundError:
+        normalized_rows = _read_inmemory_json_without_jsonpath(json_data, rml_rule['iterator'], references)
+
     # normalize and remove nulls
-    json_df = pd.json_normalize([
-        json_object
-        for json_object in normalize_hierarchical_data(jsonpath_result)
-        if None not in json_object.values()
-        and all(reference.split('.')[0] in json_object for reference in references)
-    ])
+    json_df = pd.json_normalize(normalized_rows)
 
     # add columns with null values for those references in the mapping rule that are not present in the data file
     missing_references_in_df = list(set(references).difference(set(json_df.columns)))
     json_df[missing_references_in_df] = np.nan
 
     return json_df
+
+
+def _read_inmemory_json_without_jsonpath(json_data, iterator, references):
+    iterator_items = _apply_simple_json_iterator(json_data, iterator)
+
+    rows = []
+    for item in iterator_items:
+        row = {}
+        for reference in references:
+            row[reference] = _resolve_simple_json_reference(item, reference)
+        rows.append(row)
+
+    return [
+        row
+        for row in rows
+        if None not in row.values()
+        and all(reference.split('.')[0] in row for reference in references)
+    ]
+
+
+def _apply_simple_json_iterator(json_data, iterator):
+    if iterator == '$[*]':
+        if isinstance(json_data, list):
+            return json_data
+        raise ValueError(f'Unsupported in-memory iterator `{iterator}` for non-list JSON data.')
+
+    if not iterator.startswith('$.') or not iterator.endswith('[*]'):
+        raise ValueError(
+            'Simple in-memory JSON fallback only supports iterators like `$[*]` or `$.key[*]`.'
+        )
+
+    path_tokens = iterator[2:].split('.')
+    current_items = [json_data]
+    for token in path_tokens:
+        next_items = []
+        is_list_token = token.endswith('[*]')
+        key = token[:-3] if is_list_token else token
+
+        for item in current_items:
+            if not isinstance(item, dict) or key not in item:
+                continue
+            value = item[key]
+            if is_list_token:
+                if isinstance(value, list):
+                    next_items.extend(value)
+            else:
+                next_items.append(value)
+
+        current_items = next_items
+
+    return current_items
+
+
+def _resolve_simple_json_reference(item, reference):
+    current_value = item
+    for token in reference.split('.'):
+        if not isinstance(current_value, dict) or token not in current_value:
+            return None
+        current_value = current_value[token]
+    return current_value

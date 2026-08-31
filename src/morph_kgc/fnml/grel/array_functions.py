@@ -38,8 +38,6 @@ def array_length(array_list):
     array_list="http://users.ugent.be/~bjdmeest/function/grel.ttl#p_array_a",
 )
 def array_sum(array_list):
-    print(array_list)
-    print(type(array_list))
     if type(array_list) != list:
         return None
     else:

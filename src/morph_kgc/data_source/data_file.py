@@ -11,13 +11,11 @@ import urllib.request
 import xml.etree.ElementTree as et
 from io import BytesIO
 from pathlib import Path
+from zipfile import ZipFile
 from urllib.parse import urlparse
 
 import duckdb
-import elementpath
 import pandas as pd
-from elementpath.xpath3 import XPath3Parser
-from jsonpath import JSONPath
 
 from ..constants import *
 from ..utils import normalize_hierarchical_data
@@ -170,13 +168,65 @@ def _read_excel(rml_rule, references):
 
 
 def _read_ods(rml_rule, references):
-    return pd.read_excel(rml_rule['logical_source_value'],
-                         sheet_name=0,
-                         engine='odf',
-                         usecols=references,
-                         dtype=str,
-                         keep_default_na=False,
-                         na_filter=False)
+    try:
+        return pd.read_excel(rml_rule['logical_source_value'],
+                             sheet_name=0,
+                             engine='odf',
+                             usecols=references,
+                             dtype=str,
+                             keep_default_na=False,
+                             na_filter=False)
+    except ImportError:
+        return _read_ods_without_odfpy(rml_rule, references)
+
+
+def _read_ods_without_odfpy(rml_rule, references):
+    namespaces = {
+        'office': 'urn:oasis:names:tc:opendocument:xmlns:office:1.0',
+        'table': 'urn:oasis:names:tc:opendocument:xmlns:table:1.0',
+        'text': 'urn:oasis:names:tc:opendocument:xmlns:text:1.0',
+    }
+
+    with ZipFile(rml_rule['logical_source_value']) as ods_file:
+        root = et.fromstring(ods_file.read('content.xml'))
+
+    sheet = root.find('.//table:table', namespaces)
+    if sheet is None:
+        return pd.DataFrame(columns=references)
+
+    rows = []
+    for row in sheet.findall('table:table-row', namespaces):
+        repeated_rows = int(row.attrib.get(f"{{{namespaces['table']}}}number-rows-repeated", '1'))
+        row_values = []
+        for cell in row.findall('table:table-cell', namespaces):
+            repeated_columns = int(cell.attrib.get(f"{{{namespaces['table']}}}number-columns-repeated", '1'))
+            cell_text = '\n'.join(''.join(paragraph.itertext()) for paragraph in cell.findall('text:p', namespaces))
+            row_values.extend([cell_text] * repeated_columns)
+        trimmed_values = list(row_values)
+        while trimmed_values and trimmed_values[-1] == '':
+            trimmed_values.pop()
+        for _ in range(repeated_rows):
+            rows.append(list(trimmed_values))
+
+    if not rows:
+        return pd.DataFrame(columns=references)
+
+    headers = rows[0]
+    if not headers:
+        return pd.DataFrame(columns=references)
+
+    projected_rows = []
+    for values in rows[1:]:
+        if not any(values):
+            continue
+        padded_values = values + [''] * max(0, len(headers) - len(values))
+        projected_rows.append(dict(zip(headers, padded_values[:len(headers)])))
+
+    ods_df = pd.DataFrame(projected_rows)
+    missing_references = [reference for reference in references if reference not in ods_df.columns]
+    if missing_references:
+        ods_df[missing_references] = None
+    return ods_df[references]
 
 
 def _read_json(rml_rule, references):
@@ -188,20 +238,25 @@ def _read_json(rml_rule, references):
     else:
         json_data = json.loads(Path(logical_source_value).read_bytes())
 
-    jsonpath_expression = rml_rule['iterator'] + '.('
-    # add top level object of the references to reduce intermediate results (THIS IS NOT STRICTLY NECESSARY)
-    for reference in references:
-        jsonpath_expression += reference.split('.')[0] + ','
-    jsonpath_expression = jsonpath_expression[:-1] + ')'
+    try:
+        from jsonpath import JSONPath
 
-    jsonpath_result = JSONPath(jsonpath_expression).parse(json_data)
-    # normalize and remove nulls
-    json_df = pd.json_normalize([
-        json_object
-        for json_object in normalize_hierarchical_data(jsonpath_result)
-        if None not in json_object.values()
-        and all(reference.split('.')[0] in json_object for reference in references)
-    ])
+        jsonpath_expression = rml_rule['iterator'] + '.('
+        # add top level object of the references to reduce intermediate results (THIS IS NOT STRICTLY NECESSARY)
+        for reference in references:
+            jsonpath_expression += reference.split('.')[0] + ','
+        jsonpath_expression = jsonpath_expression[:-1] + ')'
+
+        jsonpath_result = JSONPath(jsonpath_expression).parse(json_data)
+        # normalize and remove nulls
+        json_df = pd.json_normalize([
+            json_object
+            for json_object in normalize_hierarchical_data(jsonpath_result)
+            if None not in json_object.values()
+            and all(reference.split('.')[0] in json_object for reference in references)
+        ])
+    except ModuleNotFoundError:
+        json_df = _read_json_without_jsonpath(json_data, rml_rule['iterator'], references)
 
     # add columns with null values for those references in the mapping rule that are not present in the data file
     missing_references_in_df = list(set(references).difference(set(json_df.columns)))
@@ -209,6 +264,89 @@ def _read_json(rml_rule, references):
     json_df.dropna(axis=0, how='any', inplace=True)
 
     return json_df
+
+
+def _read_json_without_jsonpath(json_data, iterator, references):
+    records = _apply_simple_json_iterator(json_data, iterator)
+    normalized_records = []
+    for record in records:
+        projected_record = _project_json_record(record, references)
+        normalized_records.extend(normalize_hierarchical_data(projected_record))
+
+    json_df = pd.json_normalize(normalized_records) if normalized_records else pd.DataFrame()
+
+    return json_df
+
+
+def _apply_simple_json_iterator(json_data, iterator):
+    iterator = iterator.strip()
+    if iterator == '$':
+        return [json_data]
+
+    if not iterator.startswith('$'):
+        raise ValueError('Simple JSON fallback only supports iterators that start with `$`.')
+
+    current_nodes = [json_data]
+    path_expression = iterator[1:]
+    if path_expression.startswith('.'):
+        path_expression = path_expression[1:]
+    if not path_expression:
+        return current_nodes
+
+    for token in path_expression.split('.'):
+        next_nodes = []
+        for node in current_nodes:
+            next_nodes.extend(_advance_simple_json_nodes(node, token))
+        current_nodes = next_nodes
+
+    return current_nodes
+
+
+def _advance_simple_json_nodes(node, token):
+    if token == '*':
+        if isinstance(node, dict):
+            return list(node.values())
+        if isinstance(node, list):
+            return list(node)
+        return []
+
+    if token.endswith('[*]'):
+        key = token[:-3]
+        targets = _advance_simple_json_nodes(node, key) if key else [node]
+        expanded_targets = []
+        for target in targets:
+            if isinstance(target, list):
+                expanded_targets.extend(target)
+        return expanded_targets
+
+    if isinstance(node, dict) and token in node:
+        return [node[token]]
+
+    return []
+
+
+def _project_json_record(record, references):
+    if not isinstance(record, dict):
+        return record
+
+    projected_record = {}
+    for reference in references:
+        top_level_key = reference.split('.')[0]
+        if top_level_key == '*':
+            continue
+        if top_level_key in record:
+            projected_record[top_level_key] = record[top_level_key]
+
+    return projected_record
+
+
+def _resolve_simple_json_reference(record, reference):
+    current = record
+    for part in reference.split('.'):
+        if not isinstance(current, dict) or part not in current:
+            return None
+        current = current[part]
+    return current
 
 
 def _read_xml(rml_rule, references):
@@ -226,54 +364,54 @@ def _read_xml(rml_rule, references):
 
 
 def _parse_xml_file(xml_file, rml_rule, references):
+    try:
+        import elementpath
+        from elementpath.xpath3 import XPath3Parser
 
-    # Collect namespaces from XML document
-    namespaces = {}
-    for event, element in et.iterparse(xml_file, events=['end', 'start-ns']):
-        if event == "start-ns":
-            namespaces[element[0]] = element[1]
-        elif event == "end":
-            el = element
-    parsed = et.ElementTree(el)
-    xml_root = parsed.getroot()
-    xpath_result = elementpath.iter_select(xml_root, rml_rule['iterator'], namespaces=namespaces, parser=XPath3Parser)
+        # Collect namespaces from XML document
+        namespaces = {}
+        for event, element in et.iterparse(xml_file, events=['end', 'start-ns']):
+            if event == "start-ns":
+                namespaces[element[0]] = element[1]
+            elif event == "end":
+                el = element
+        parsed = et.ElementTree(el)
+        xml_root = parsed.getroot()
+        xpath_result = elementpath.iter_select(xml_root, rml_rule['iterator'], namespaces=namespaces, parser=XPath3Parser)
 
-    # we need to retrieve both ELEMENTS and ATTRIBUTES in the XML
-    data_records = []
-    for e in xpath_result:
-        data_record = []
-        for reference in references:
-            data_value = []
-            reference = reference.replace('/@', '@')  # deals with `route/stop/@id`
+        # we need to retrieve both ELEMENTS and ATTRIBUTES in the XML
+        data_records = []
+        for e in xpath_result:
+            data_record = []
+            for reference in references:
+                data_value = []
+                reference = reference.replace('/@', '@')  # deals with `route/stop/@id`
 
-            if reference.startswith('@'):
-                element = None
-                attribute = reference
-            elif '@' in reference:
-                element = reference.split('@')[0]
-                attribute = reference.split('@')[1]
-            else:
-                element = reference
-                attribute = None
+                if reference.startswith('@'):
+                    element = None
+                    attribute = reference
+                elif '@' in reference:
+                    element = reference.split('@')[0]
+                    attribute = reference.split('@')[1]
+                else:
+                    element = reference
+                    attribute = None
 
-            if element:
-                for r in e.findall(element, namespaces=namespaces):
-                    if attribute:
-                        data_value.append(r.get(attribute))
-                    else:
-                        data_value.append(r.text)
-            else:
-                attribute = attribute[1:]  # do not use the starting @ from the attribute
-                data_value.append(e.attrib[attribute])
-            data_record.append(data_value)
-        data_records.append(data_record)
+                if element:
+                    for r in e.findall(element, namespaces=namespaces):
+                        if attribute:
+                            data_value.append(r.get(attribute))
+                        else:
+                            data_value.append(r.text)
+                else:
+                    attribute = attribute[1:]  # do not use the starting @ from the attribute
+                    data_value.append(e.attrib[attribute])
+                data_record.append(data_value)
+            data_records.append(data_record)
 
-    # IMPORTANT NOTES
-    # XPath 3.0 is used (XPath 3.1 is in the roadmap of the elementpath library)
-    # with XPath 3.1 the above could be achieved using just an XPath expression by including the references in it
-    # for instance, the XPath expression: /root/[id,creator/name] obtaining for example ["2479", ["Julián", "Jhon"]]
-
-    xml_df = pd.DataFrame.from_records(data_records, columns=references)
+        xml_df = pd.DataFrame.from_records(data_records, columns=references)
+    except ModuleNotFoundError:
+        xml_df = _parse_xml_file_without_elementpath(xml_file, rml_rule, references)
 
     # add columns with null values for those references in the mapping rule that are not present in the data file
     missing_references_in_df = list(set(references).difference(set(xml_df.columns)))
@@ -284,3 +422,52 @@ def _parse_xml_file(xml_file, rml_rule, references):
         xml_df = xml_df.explode(reference)
 
     return xml_df
+
+
+def _parse_xml_file_without_elementpath(xml_file, rml_rule, references):
+    xml_root = et.parse(xml_file).getroot()
+    xpath_result = _select_simple_xml_elements(xml_root, rml_rule['iterator'])
+
+    data_records = []
+    for element in xpath_result:
+        data_record = []
+        for reference in references:
+            values = []
+            reference = reference.replace('/@', '@')
+            if reference.startswith('@'):
+                values.append(element.attrib.get(reference[1:]))
+            elif '@' in reference:
+                element_path, attribute = reference.split('@', 1)
+                for child in element.findall(element_path):
+                    values.append(child.attrib.get(attribute))
+            else:
+                for child in element.findall(reference):
+                    values.append(child.text)
+            data_record.append(values)
+        data_records.append(data_record)
+
+    return pd.DataFrame.from_records(data_records, columns=references)
+
+
+def _select_simple_xml_elements(xml_root, iterator):
+    iterator = iterator.strip()
+    if iterator == '.':
+        return [xml_root]
+
+    if iterator == '/*':
+        return [xml_root]
+
+    if not iterator.startswith('/'):
+        return xml_root.findall(iterator)
+
+    path_parts = [part for part in iterator.split('/') if part]
+    if not path_parts:
+        return [xml_root]
+
+    if path_parts[0] == xml_root.tag:
+        path_parts = path_parts[1:]
+
+    if not path_parts:
+        return [xml_root]
+
+    return xml_root.findall('/'.join(path_parts))

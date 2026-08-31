@@ -12,7 +12,6 @@ import importlib.util
 import sys
 
 from pathlib import Path
-from jsonpath import JSONPath
 from io import StringIO
 from ..utils import normalize_hierarchical_data
 
@@ -29,7 +28,9 @@ def load_module_from_path(module_name, file_path):
 
 
 def get_http_api_data(config, rml_rule, references):
+    from jsonpath import JSONPath
     import requests
+
     http_api_df = pd.read_csv(StringIO(config.get('CONFIGURATION', 'http_api_df')))
 
     df = http_api_df[http_api_df['source'] == rml_rule['logical_source_value']]
