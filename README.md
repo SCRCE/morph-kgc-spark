@@ -1,8 +1,6 @@
 <p align="center">
-<img src="https://raw.githubusercontent.com/morph-kgc/morph-kgc/main/logo/logo.png" height="100" alt="morph">
+<img src="logo/morph-spark.png" height="110" alt="Morph-Spark">
 </p>
-
-<h1 align="center">Morph-KGC Spark</h1>
 
 <p align="center"><strong>A community-maintained Morph-KGC fork with an optional distributed Apache Spark backend.</strong></p>
 
