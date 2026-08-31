@@ -2,6 +2,13 @@
 <img src="https://raw.githubusercontent.com/morph-kgc/morph-kgc/main/logo/logo.png" height="100" alt="morph">
 </p>
 
+<h1 align="center">Morph-KGC Spark</h1>
+
+<p align="center"><strong>A community-maintained Morph-KGC fork with an optional distributed Apache Spark backend.</strong></p>
+
+> [!NOTE]
+> Pandas remains the default and reference engine. Spark is explicitly enabled for workloads that benefit from distributed source reads, joins, deduplication, function execution, and RDF output. This fork remains compatible with Morph-KGC configurations and clearly reports unsupported Spark cases instead of silently falling back to pandas.
+
 [![License](https://img.shields.io/pypi/l/morph-kgc.svg)](https://github.com/morph-kgc/morph-kgc/blob/main/LICENSE)
 [![DOI](https://zenodo.org/badge/311956260.svg?style=flat)](https://zenodo.org/badge/latestdoi/311956260)
 [![Latest PyPI version](https://img.shields.io/pypi/v/morph-kgc?style=flat)](https://pypi.python.org/pypi/morph-kgc)
@@ -53,10 +60,10 @@ To run the engine via **command line** you just need to execute the following:
 morph_kgc config.ini
 ```
 
-The default execution engine is `pandas`. To use the optional Spark backend:
+The default execution engine is `pandas`. Install this fork with its optional Spark dependencies to use the Spark backend:
 
 ```bash
-pip install 'morph-kgc[spark]'
+pip install 'morph-kgc[spark] @ git+https://github.com/SCRCE/morph-kgc-spark.git@v2.10.0-spark.1'
 ```
 
 ```ini

@@ -4,16 +4,17 @@ build-backend = 'hatchling.build'
 
 [project.urls]
 Documentation = 'https://morph-kgc.readthedocs.io'
-Source = 'https://github.com/morph-kgc/morph-kgc'
-Tracker = 'https://github.com/morph-kgc/morph-kgc/issues'
-CI = 'https://github.com/morph-kgc/morph-kgc/actions'
+Source = 'https://github.com/SCRCE/morph-kgc-spark'
+Tracker = 'https://github.com/SCRCE/morph-kgc-spark/issues'
+CI = 'https://github.com/SCRCE/morph-kgc-spark/actions'
 Homepage = 'https://morph-kgc.readthedocs.io'
-History = 'https://github.com/morph-kgc/morph-kgc/releases'
+History = 'https://github.com/SCRCE/morph-kgc-spark/releases'
+Upstream = 'https://github.com/morph-kgc/morph-kgc'
 #Sponsor = ''
 
 [project]
 name = 'morph_kgc'
-description = 'Powerful [R2]RML engine to create RDF knowledge graphs from heterogeneous data sources.'
+description = 'Morph-KGC fork with an optional Apache Spark backend for distributed RDF materialization.'
 readme = 'README.md'
 keywords = ['Morph-KGC', 'RDF', 'R2RML', 'RML', 'RML-star', 'Knowledge Graph', 'Data Integration']
 authors = [
